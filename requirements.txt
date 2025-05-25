@@ -1,0 +1,5 @@
+selenium
+webdriver-manager
+cloudscraper
+beautifulsoup4
+lxml
