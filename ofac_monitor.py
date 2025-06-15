@@ -6,7 +6,7 @@ from email.utils import formataddr
 import smtplib
 import os
 
-CHINA_PATTERN = re.compile(r"(中国|中國|香港｜香港|china|China|CHINA|hong kong|HONG KONG|Hong Kong|hk|HK)", re.I)
+CHINA_PATTERN = re.compile(r"(中国|中國|香港|香港|china|China|CHINA|hong kong|HONG KONG|Hong Kong|hk|HK)", re.I)
 
 def fetch_china_related_links():
     """同步抓取 OFAC 最近更新中正文包含‘中国/香港’的链接"""
