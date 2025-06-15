@@ -1,13 +1,13 @@
-import re
-import smtplib
+import os
 import asyncio
+import re
+from playwright.async_api import async_playwright
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-from playwright.async_api import async_playwright
-from datetime import datetime, timedelta, timezone
+import smtplib
 
-# 你的异步抓取函数
+
 async def fetch_recent_action_links():
     links = {}
     async with async_playwright() as p:
@@ -28,13 +28,11 @@ async def fetch_recent_action_links():
         await browser.close()
     return links
 
+
 def filter_china_links(links_dict):
-    china_links = []
     pattern = re.compile(r'(中国|香港)', re.I)
-    for url, title in links_dict.items():
-        if pattern.search(title) or pattern.search(url):
-            china_links.append(url)
-    return china_links
+    return [url for url, title in links_dict.items() if pattern.search(title) or pattern.search(url)]
+
 
 def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password):
     msg = MIMEText(body, 'plain', 'utf-8')
@@ -43,7 +41,7 @@ def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, passwo
     msg['Subject'] = Header(subject, 'utf-8')
 
     try:
-        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        server = smtplib.SMTP_SSL(smtp_server, int(smtp_port))
         server.login(from_addr, password)
         server.sendmail(from_addr, [to_addr], msg.as_string())
         server.quit()
@@ -51,9 +49,9 @@ def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, passwo
     except Exception as e:
         print("❌ 邮件发送失败：", str(e))
 
-# 你的主要业务逻辑
-async def run_task():
-    print(f"[{datetime.now()}] 开始抓取 OFAC 最近更新链接...")
+
+async def main():
+    print("开始抓取 OFAC 最近更新链接...")
     all_links = await fetch_recent_action_links()
     print(f"共提取 {len(all_links)} 条更新链接")
 
@@ -66,44 +64,17 @@ async def run_task():
         subject = f"【OFAC提醒】发现 {len(china_links)} 条涉及中国/香港的新更新"
         body = "以下链接与中国/香港相关：\n\n" + "\n".join(china_links)
 
-        from_addr = "stanmarsh_1996@qq.com"
-        to_addr = "1049022953@qq.com"
-        smtp_server = "smtp.qq.com"
-        smtp_port = 465
-        password = "你的授权码"  # 记得替换
+        # 从环境变量读取邮件信息
+        from_addr = os.getenv("FROM_ADDR")
+        to_addr = os.getenv("TO_ADDR")
+        smtp_server = os.getenv("SMTP_SERVER")
+        smtp_port = os.getenv("SMTP_PORT")
+        password = os.getenv("SMTP_PASSWORD")
 
         send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
     else:
         print("❌ 无与中国/香港相关的新更新，无需发送邮件")
 
-# 计算到下一个整点的秒数（北京时间，UTC+8）
-def seconds_until_next_run():
-    tz = timezone(timedelta(hours=8))  # 北京时间
-    now = datetime.now(tz)
-    if now.hour < 8:
-        # 如果早于8点，直接等待到8点整
-        next_run = now.replace(hour=8, minute=0, second=0, microsecond=0)
-    elif now.hour >= 20:
-        # 晚于20点，等到第二天8点
-        next_run = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-    else:
-        # 8点-19点之间，等到下一个整点
-        next_run = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-
-    return (next_run - now).total_seconds()
-
-async def scheduler():
-    while True:
-        tz = timezone(timedelta(hours=8))
-        now = datetime.now(tz)
-        if 8 <= now.hour <= 20:
-            await run_task()
-        else:
-            print(f"[{now}] 非执行时间段，等待到早上8点...")
-
-        wait_seconds = seconds_until_next_run()
-        print(f"等待 {int(wait_seconds)} 秒后开始下一次执行...\n")
-        await asyncio.sleep(wait_seconds)
 
 if __name__ == "__main__":
-    asyncio.run(scheduler())
+    asyncio.run(main())
