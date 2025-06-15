@@ -5,7 +5,7 @@ from email.header import Header
 from email.utils import formataddr
 import smtplib
 
-CHINA_PATTERN = re.compile(r"(中国|香港)", re.I)
+CHINA_PATTERN = re.compile(r"(中国|香港｜china|China|CHINA|hong kong|HONG KONG|Hong Kong|hk|HK)", re.I)
 
 def fetch_china_related_links():
     """同步抓取 OFAC 最近更新中正文包含‘中国/香港’的链接"""
@@ -18,15 +18,14 @@ def fetch_china_related_links():
         page.wait_for_selector('a[href*="/recent-actions/202"]', timeout=10000)
 
         elements = page.query_selector_all('a[href*="/recent-actions/202"]')
-        hrefs = {
-            "https://ofac.treasury.gov/recent-actions/20250606"
-        }
-        """
+        hrefs = set()
+
         for elem in elements:
             href = elem.get_attribute("href")
             if href and href.startswith("/recent-actions/202"):
                 hrefs.add("https://ofac.treasury.gov" + href)
-        """
+        
+
         for url in hrefs:
             try:
                 detail_page = browser.new_page()
@@ -74,11 +73,11 @@ if __name__ == "__main__":
         subject = f"【OFAC提醒】发现 {len(china_links)} 条涉及中国/香港的新更新"
         body = "以下链接与中国/香港相关：\n\n" + "\n".join(china_links)
 
-        from_addr = "your_email@qq.com"      # 修改为你的发件邮箱
-        to_addr = "receiver@qq.com"          # 修改为收件人邮箱
+        from_addr = "stanmarsh_1996@qq.com"      # 修改为你的发件邮箱
+        to_addr = "1049022953@qq.com"          # 修改为收件人邮箱
         smtp_server = "smtp.qq.com"
         smtp_port = 465
-        password = "your_smtp_auth_code"     # QQ邮箱授权码
+        password = "btlliocdfdzqdgcj"     # QQ邮箱授权码
 
         send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
     else:
