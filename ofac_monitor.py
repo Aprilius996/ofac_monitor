@@ -53,12 +53,6 @@ def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, passwo
 async def main():
     print("开始抓取 OFAC 最近更新链接...")
     all_links = await fetch_recent_action_links()
-    # 模拟 OFAC 返回数据（测试用）
-    all_links = {
-        "https://ofac.treasury.gov/recent-actions/2025-06-15-china": "新增对中国某企业制裁",
-        "https://ofac.treasury.gov/recent-actions/2025-06-15-iran": "新增对伊朗某组织制裁",
-        "https://ofac.treasury.gov/recent-actions/2025-06-15-hk": "香港某金融机构新增制裁",
-    }
     print(f"共提取 {len(all_links)} 条更新链接")
 
     china_links = filter_china_links(all_links)
