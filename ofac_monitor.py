@@ -4,6 +4,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 import smtplib
+import os
 
 CHINA_PATTERN = re.compile(r"(中国|香港｜china|China|CHINA|hong kong|HONG KONG|Hong Kong|hk|HK)", re.I)
 
@@ -18,13 +19,16 @@ def fetch_china_related_links():
         page.wait_for_selector('a[href*="/recent-actions/202"]', timeout=10000)
 
         elements = page.query_selector_all('a[href*="/recent-actions/202"]')
-        hrefs = set()
+        hrefs = {
+            "https://ofac.treasury.gov/recent-actions/20250606"
+        }
 
+        """
         for elem in elements:
             href = elem.get_attribute("href")
             if href and href.startswith("/recent-actions/202"):
                 hrefs.add("https://ofac.treasury.gov" + href)
-        
+        """
 
         for url in hrefs:
             try:
@@ -73,11 +77,11 @@ if __name__ == "__main__":
         subject = f"【OFAC提醒】发现 {len(china_links)} 条涉及中国/香港的新更新"
         body = "以下链接与中国/香港相关：\n\n" + "\n".join(china_links)
 
-        from_addr = "stanmarsh_1996@qq.com"      # 修改为你的发件邮箱
-        to_addr = "1049022953@qq.com"          # 修改为收件人邮箱
-        smtp_server = "smtp.qq.com"
-        smtp_port = 465
-        password = "btlliocdfdzqdgcj"     # QQ邮箱授权码
+        from_addr = os.environ.get("FROM_ADDR")
+        to_addr = os.environ.get("TO_ADDR")
+        smtp_server = os.environ.get("SMTP_SERVER")
+        smtp_port = int(os.environ.get("SMTP_PORT"))
+        password = os.environ.get("SMTP_PASSWORD")
 
         send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
     else:
