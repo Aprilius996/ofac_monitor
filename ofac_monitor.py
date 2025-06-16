@@ -1,51 +1,57 @@
 import re
-from playwright.sync_api import sync_playwright
+import requests
+from bs4 import BeautifulSoup
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 import smtplib
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo  # Python 3.9+ 原生支持
 
 CHINA_PATTERN = re.compile(r"(中国|中國|香港|china|hong kong|hk)", re.I)
 
-def fetch_china_related_links():
-    """同步抓取 OFAC 最近更新中正文包含‘中国/香港’的链接"""
-    matching_links = []
+def fetch_today_china_related_link():
+    """检查 OFAC 是否在今天（美国东部时间）发布更新，且内容涉及中国/香港"""
+    base_url = "https://ofac.treasury.gov"
+    index_url = base_url + "/recent-actions"
+    today_str = datetime.now(ZoneInfo("America/New_York")).strftime("%Y%m%d")
+    target_link = None
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto("https://ofac.treasury.gov/recent-actions", timeout=60000)
-        page.wait_for_selector('a[href*="/recent-actions/202"]', timeout=10000)
+    try:
+        resp = requests.get(index_url, timeout=30)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"❌ 无法加载主页面：{e}")
+        return None
 
-        elements = page.query_selector_all('a[href*="/recent-actions/202"]')
-        hrefs = set()
-        
-        for elem in elements:
-            href = elem.get_attribute("href")
-            if href and href.startswith("/recent-actions/202"):
-                hrefs.add("https://ofac.treasury.gov" + href)
-    
-        for url in hrefs:
-            try:
-                detail_page = browser.new_page()
-                detail_page.goto(url, timeout=60000)
-                detail_page.wait_for_selector("main", timeout=10000)
+    soup = BeautifulSoup(resp.text, "html.parser")
+    anchors = soup.find_all("a", href=True)
 
-                content = detail_page.inner_text("main")
-                if CHINA_PATTERN.search(content):
-                    matching_links.append(url)
+    for a in anchors:
+        href = a["href"]
+        if href.startswith(f"/recent-actions/{today_str}"):
+            target_link = base_url + href
+            break
 
-                detail_page.close()
-            except Exception as e:
-                print(f"⚠️ 读取 {url} 失败：{e}")
+    if not target_link:
+        print("📭 今天没有发布新名单。")
+        return None
 
-        browser.close()
-    return matching_links
-
+    try:
+        r = requests.get(target_link, timeout=30)
+        r.raise_for_status()
+        content = r.text
+        if CHINA_PATTERN.search(content):
+            return target_link
+        else:
+            print("📄 今天有更新，但与中国/香港无关。")
+            return None
+    except Exception as e:
+        print(f"⚠️ 无法访问今日链接 {target_link}：{e}")
+        return None
 
 def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password):
-    """发送邮件通知"""
     msg = MIMEText(body, 'plain', 'utf-8')
     msg['From'] = formataddr(("OFAC监控脚本", from_addr))
     msg['To'] = formataddr(("收件人", to_addr))
@@ -60,25 +66,24 @@ def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, passwo
     except Exception as e:
         print("❌ 邮件发送失败：", str(e))
 
-
 if __name__ == "__main__":
-    print("🚀 开始检查 OFAC 最近更新是否涉及中国/香港...")
+    print("🚀 检查 OFAC 是否于今日发布与中国/香港相关更新...")
 
-    china_links = fetch_china_related_links()
-    print(f"✅ 共找到 {len(china_links)} 条与中国/香港相关的链接：")
-    for link in china_links:
-        print(link)
+    matched_url = fetch_today_china_related_link()
 
-    if china_links:
-        subject = f"【OFAC提醒】发现 {len(china_links)} 条涉及中国/香港的新更新"
-        body = "以下链接与中国/香港相关：\n\n" + "\n".join(china_links)
+    if matched_url:
+        subject = "【OFAC提醒】今日新增与中国/香港相关制裁更新"
+        body = f"OFAC 今日发布更新，内容涉及中国/香港：\n\n{matched_url}"
 
-        from_addr = os.environ.get("FROM_ADDR")
-        to_addr = os.environ.get("TO_ADDR")
-        smtp_server = os.environ.get("SMTP_SERVER")
-        smtp_port = int(os.environ.get("SMTP_PORT"))
-        password = os.environ.get("SMTP_PASSWORD")
+        from_addr = os.getenv("FROM_ADDR")
+        to_addr = os.getenv("TO_ADDR")
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.qq.com")
+        smtp_port = int(os.getenv("SMTP_PORT", 465))
+        password = os.getenv("SMTP_PASSWORD")
 
-        send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
+        if from_addr and to_addr and password:
+            send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
+        else:
+            print("❌ 缺少邮箱配置环境变量，未发送邮件")
     else:
-        print("❌ 无与中国/香港相关的新更新，无需发送邮件")
+        print("✅ 今日无与中国/香港相关的新更新。")
