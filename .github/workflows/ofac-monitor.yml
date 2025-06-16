@@ -24,6 +24,7 @@ jobs:
 
       - name: Run OFAC Monitor script
         env:
+          RESET_NOTIFICATION: "1"  # ✅ 开启每次运行都清除 ofac_sent.log
           FROM_ADDR: ${{ secrets.FROM_ADDR }}
           TO_ADDR: ${{ secrets.TO_ADDR }}
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
