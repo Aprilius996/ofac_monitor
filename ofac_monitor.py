@@ -66,12 +66,29 @@ def send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, passwo
     except Exception as e:
         print("❌ 邮件发送失败：", str(e))
 
+def already_notified_today(log_file="ofac_sent.log"):
+    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    if os.path.exists(log_file):
+        with open(log_file, "r") as f:
+            if today in f.read():
+                return True
+    return False
+
+def mark_notified_today(log_file="ofac_sent.log"):
+    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    with open(log_file, "a") as f:
+        f.write(today + "\n")
+
 if __name__ == "__main__":
     print("🚀 检查 OFAC 是否于今日发布与中国/香港相关更新...")
+    if os.getenv("RESET_NOTIFICATION") == "1":
+        if os.path.exists("ofac_sent.log"):
+            os.remove("ofac_sent.log")
+            print("🧹 清除通知记录日志 ofac_sent.log")
 
     matched_url = fetch_today_china_related_link()
 
-    if matched_url:
+    if matched_url and not already_notified_today():
         subject = "【OFAC提醒】今日新增与中国/香港相关制裁更新"
         body = f"OFAC 今日发布更新，内容涉及中国/香港：\n\n{matched_url}"
 
@@ -83,7 +100,10 @@ if __name__ == "__main__":
 
         if from_addr and to_addr and password:
             send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
+            mark_notified_today()
         else:
             print("❌ 缺少邮箱配置环境变量，未发送邮件")
+    elif matched_url:
+        print("ℹ️ 今日已发送过涉华更新提醒，不再重复发送。")
     else:
         print("✅ 今日无与中国/香港相关的新更新。")
