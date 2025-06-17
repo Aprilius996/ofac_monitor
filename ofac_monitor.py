@@ -15,7 +15,7 @@ def fetch_today_china_related_link():
     """检查 OFAC 是否在今天（美国东部时间）发布更新，且内容涉及中国/香港"""
     base_url = "https://ofac.treasury.gov"
     index_url = base_url + "/recent-actions"
-    today_str = datetime.now(ZoneInfo("America/New_York")).strftime("%Y%m%d")
+    today_str = "20250606"
     target_link = None
 
     try:
