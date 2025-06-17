@@ -88,9 +88,10 @@ if __name__ == "__main__":
 
     matched_url = fetch_today_china_related_link()
 
-    if matched_url and not already_notified_today():
-        subject = "【OFAC提醒】今日新增与中国/香港相关制裁更新"
-        body = f"OFAC 今日发布更新，内容涉及中国/香港：\n\n{matched_url}"
+    if matched_url:
+        not already_notified_today():
+            subject = "【OFAC提醒】今日新增与中国/香港相关制裁更新"
+            body = f"OFAC 今日发布更新，内容涉及中国/香港：\n\n{matched_url}"
 
         from_addr = os.getenv("FROM_ADDR")
         to_addr = os.getenv("TO_ADDR")
