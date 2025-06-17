@@ -15,9 +15,10 @@ def fetch_today_china_related_link():
     """检查 OFAC 是否在今天（美国东部时间）发布更新，且内容涉及中国/香港"""
     base_url = "https://ofac.treasury.gov"
     index_url = base_url + "/recent-actions"
-    today_str = "20250616"
+    today_str = today_str = datetime.now(ZoneInfo("America/New_York")).strftime("%Y%m%d")  # 修复：使用实际日期
     target_link = None
 
+    # 第一步：获取主页面，查找今日链接
     try:
         resp = requests.get(index_url, timeout=30)
         resp.raise_for_status()
@@ -27,26 +28,35 @@ def fetch_today_china_related_link():
 
     soup = BeautifulSoup(resp.text, "html.parser")
     anchors = soup.find_all("a", href=True)
-
+    
+    # 查找今日更新链接
     for a in anchors:
         href = a["href"]
         if href.startswith(f"/recent-actions/{today_str}"):
             target_link = base_url + href
             break
-
+    
     if not target_link:
         print("📭 今天没有发布新名单。")
         return None
 
+    # 第二步：访问今日更新页面，检查是否涉及中国/香港
     try:
         r = requests.get(target_link, timeout=30)
         r.raise_for_status()
         content = r.text
-        if CHINA_PATTERN.search(content):
+        
+        # 解析今日更新页面内容
+        soup = BeautifulSoup(content, "html.parser")
+        page_text = soup.get_text()
+        
+        if CHINA_PATTERN.search(page_text):
+            print(f"✅ 发现与中国/香港相关的更新：{target_link}")
             return target_link
         else:
             print("📄 今天有更新，但与中国/香港无关。")
             return None
+            
     except Exception as e:
         print(f"⚠️ 无法访问今日链接 {target_link}：{e}")
         return None
@@ -86,10 +96,14 @@ def mark_notified_today(log_file="ofac_sent.log"):
 # ===== 请完整复制下面的所有代码 =====
 if __name__ == "__main__":
     print("🚀 检查 OFAC 是否于今日发布与中国/香港相关更新...")
+    
     if os.getenv("RESET_NOTIFICATION") == "1":
-        if os.path.exists("ofac_sent.log"):
-            os.remove("ofac_sent.log")
-            print("🧹 清除通知记录日志 ofac_sent.log")
+        try:
+            if os.path.exists("ofac_sent.log"):
+                os.remove("ofac_sent.log")
+                print("🧹 清除通知记录日志 ofac_sent.log")
+        except OSError as e:
+            print(f"⚠️ 删除日志文件失败: {e}")
 
     matched_url = fetch_today_china_related_link()
 
@@ -101,12 +115,23 @@ if __name__ == "__main__":
             from_addr = os.getenv("FROM_ADDR")
             to_addr = os.getenv("TO_ADDR")
             smtp_server = os.getenv("SMTP_SERVER", "smtp.qq.com")
-            smtp_port = int(os.getenv("SMTP_PORT", 465))
+            
+            # 安全的端口转换
+            try:
+                smtp_port = int(os.getenv("SMTP_PORT", 465))
+            except (ValueError, TypeError):
+                smtp_port = 465
+                print("⚠️ SMTP端口配置无效，使用默认端口465")
+                
             password = os.getenv("SMTP_PASSWORD")
 
             if from_addr and to_addr and password:
-                send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
-                mark_notified_today()
+                try:
+                    send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
+                    mark_notified_today()
+                    print("📧 邮件发送成功")
+                except Exception as e:
+                    print(f"❌ 邮件发送失败: {e}")
             else:
                 print("❌ 缺少邮箱配置环境变量，未发送邮件")
         else:
