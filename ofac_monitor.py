@@ -89,22 +89,22 @@ if __name__ == "__main__":
     matched_url = fetch_today_china_related_link()
 
     if matched_url:
-        not already_notified_today():
-            subject = "【OFAC提醒】今日新增与中国/香港相关制裁更新"
-            body = f"OFAC 今日发布更新，内容涉及中国/香港：\n\n{matched_url}"
+    if not already_notified_today():
+        subject = "【OFAC提醒】今日新增与中国/香港相关制裁更新"
+        body = f"OFAC 今日发布更新，内容涉及中国/香港：\n\n{matched_url}"
 
-            from_addr = os.getenv("FROM_ADDR")
-            to_addr = os.getenv("TO_ADDR")
-            smtp_server = os.getenv("SMTP_SERVER", "smtp.qq.com")
-            smtp_port = int(os.getenv("SMTP_PORT", 465))
-            password = os.getenv("SMTP_PASSWORD")
+        from_addr = os.getenv("FROM_ADDR")
+        to_addr = os.getenv("TO_ADDR")
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.qq.com")
+        smtp_port = int(os.getenv("SMTP_PORT", 465))
+        password = os.getenv("SMTP_PASSWORD")
 
-            if from_addr and to_addr and password:
+        if from_addr and to_addr and password:
             send_email(subject, body, from_addr, to_addr, smtp_server, smtp_port, password)
-                mark_notified_today()
-            else:
-                 print("❌ 缺少邮箱配置环境变量，未发送邮件")
-        elif matched_url:
-            print("ℹ️ 今日已发送过涉华更新提醒，不再重复发送。")
+            mark_notified_today()
         else:
-            print("✅ 今日无与中国/香港相关的新更新。")
+            print("❌ 缺少邮箱配置环境变量，未发送邮件")
+    else:
+        print("ℹ️ 今日已发送过涉华更新提醒，不再重复发送。")
+else:
+    print("✅ 今日无与中国/香港相关的新更新。")
