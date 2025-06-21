@@ -15,9 +15,8 @@ CHINA_PATTERN = re.compile(r"中国|China|香港|hong kong|hk", re.I)
 
 def fetch_ofac_china_related_link():
     base_url = "https://ofac.treasury.gov/recent-actions"
-    today_url = f"{base_url}/{datetime.now(ZoneInfo('America/New_York').strftime("%Y%m%d")}"
+    today_url = f"{base_url}/{datetime.now(ZoneInfo('America/New_York')).strftime('%Y%m%d')}"
     target_url = f"{base_url}/{today_url}"
-    
     try:
         resp = requests.get(target_url, timeout=30)
         resp.raise_for_status()
@@ -87,8 +86,3 @@ if __name__ == "__main__":
         subprocess.run(['git', 'push'])
     else:
         print("没有发现与中国相关的OFAC链接")
-    
-            
-    
-
-
